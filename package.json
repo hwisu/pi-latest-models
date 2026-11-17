@@ -1,6 +1,6 @@
 {
   "name": "pi-latest-models",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Show only the newest model of each family (Sonnet, Opus, GPT-…, Gemini Flash, …) in pi's /model list.",
   "type": "module",
   "license": "MIT",

@@ -2,6 +2,8 @@ import { ModelSelectorComponent, type Theme } from "@earendil-works/pi-coding-ag
 import { type KeyId, matchesKey, Text } from "@earendil-works/pi-tui";
 import type { Config } from "./config.ts";
 import { latestKeys, matchesAny, type ModelRef, modelKey } from "./family.ts";
+import { nextSortMode, SORT_LABELS, type SortMode, sortModels } from "./sort.ts";
+import type { UsageMap } from "./usage.ts";
 
 /*
  * pi runs its built-in /model command before extension commands, so the command itself cannot be
@@ -9,11 +11,15 @@ import { latestKeys, matchesAny, type ModelRef, modelKey } from "./family.ts";
  * and its shortcut). They are internal: if a pi release changes them, the patch is skipped and pi's
  * normal selector is used.
  *
- * Only the "all" list is collapsed. A "scoped" list (from enabledModels / --models) is an explicit
- * choice and is shown as configured.
+ * Only the "all" list is collapsed and re-ordered. A "scoped" list (from enabledModels / --models) is
+ * an explicit choice and is shown as configured.
  */
 
-const PATCHED = Symbol.for("pi-latest-models.patched.v1");
+// Bump PATCH_VERSION when the patched methods change: /reload after an update then re-installs
+// them on top of pi's original methods (kept under ORIGINALS) instead of wrapping the old patch.
+const PATCH_VERSION = 2;
+const PATCHED = Symbol.for("pi-latest-models.patched");
+const ORIGINALS = Symbol.for("pi-latest-models.originals");
 const HOOKS = Symbol.for("pi-latest-models.hooks");
 const STATE = Symbol.for("pi-latest-models.state");
 const REQUIRED = ["sortModels", "loadModelsFromSnapshot", "filterModels", "updateList", "handleInput"] as const;
@@ -21,6 +27,9 @@ const REQUIRED = ["sortModels", "loadModelsFromSnapshot", "filterModels", "updat
 export interface Hooks {
 	config(): Config;
 	theme(): Theme | undefined;
+	usage(): UsageMap;
+	/** Persists a new default order. */
+	setSort(mode: SortMode): void;
 }
 
 type Item = ModelRef & { model: ModelRef };
@@ -66,6 +75,14 @@ function config(): Config | undefined {
 		return holder[HOOKS]?.config();
 	} catch {
 		return undefined;
+	}
+}
+
+function usage(): UsageMap {
+	try {
+		return holder[HOOKS]?.usage() ?? new Map();
+	} catch {
+		return new Map();
 	}
 }
 
@@ -115,36 +132,48 @@ function rebuild(self: Selector): void {
 
 function hint(self: Selector, cfg: Config): string | undefined {
 	const own = state(self);
-	if (self.scope === "scoped" || own.hidden === 0) return undefined;
-	const key = cfg.toggleKey;
-	if (own.showAll) return paint("dim", `  Showing all versions · ${key} latest only`);
-	if (own.fallback) return paint("warning", `  No latest model matches; showing older versions · ${key} show all`);
-	const noun = own.hidden === 1 ? "version" : "versions";
-	return paint("dim", `  ${own.hidden} older ${noun} hidden · ${key} show all`);
+	if (self.scope === "scoped") return undefined;
+	const sort = `sort: ${SORT_LABELS[cfg.sort]} · ${cfg.sortKey} change`;
+	if (own.fallback) {
+		return paint("warning", `  No latest model matches; showing older versions · ${cfg.toggleKey} show all · ${sort}`);
+	}
+	const parts: string[] = [];
+	if (own.showAll) parts.push(`Showing all versions · ${cfg.toggleKey} latest only`);
+	else if (own.hidden > 0) parts.push(`${own.hidden} older ${own.hidden === 1 ? "version" : "versions"} hidden · ${cfg.toggleKey} show all`);
+	parts.push(sort);
+	return paint("dim", `  ${parts.join(" · ")}`);
+}
+
+function pinRank(self: Selector, model: ModelRef): number | undefined {
+	if (same(self.currentModel, model)) return 0;
+	if (self.isDefaultModel?.(model)) return 1;
+	return undefined;
 }
 
 /** Returns false when this pi version's selector does not have the expected methods. */
 export function patchModelSelector(): boolean {
 	const proto = ModelSelectorComponent?.prototype as unknown as Record<string | symbol, unknown> | undefined;
 	if (!proto) return false;
-	if (proto[PATCHED]) return true;
+	if (proto[PATCHED] === PATCH_VERSION) return true;
 	if (REQUIRED.some((name) => typeof proto[name] !== "function")) return false;
-	const original = Object.fromEntries(REQUIRED.map((name) => [name, proto[name] as Method])) as Record<
-		(typeof REQUIRED)[number],
-		Method
-	>;
-	proto[PATCHED] = true;
+	type Originals = Record<(typeof REQUIRED)[number], Method>;
+	proto[ORIGINALS] ??= Object.fromEntries(REQUIRED.map((name) => [name, proto[name] as Method]));
+	const original = proto[ORIGINALS] as Originals;
+	proto[PATCHED] = PATCH_VERSION;
 
-	// Builds the "all" list.
+	// Builds the "all" list: pi's order, then the configured order, then collapsed.
 	proto.sortModels = function (this: Selector, models: Item[]) {
-		const sorted: Item[] = original.sortModels.call(this, models);
+		let sorted: Item[] = original.sortModels.call(this, models);
 		const own = state(this);
 		const cfg = config();
 		own.full = sorted;
 		own.hidden = 0;
-		if (!cfg?.enabled) return sorted;
+		if (!cfg) return sorted;
 		try {
-			const visible = collapse(sorted, cfg, (m) => same(this.currentModel, m) || !!this.isDefaultModel?.(m));
+			sorted = sortModels(sorted, cfg.sort, usage(), (item) => pinRank(this, item.model));
+			own.full = sorted;
+			if (!cfg.enabled) return sorted;
+			const visible = collapse(sorted, cfg, (m) => pinRank(this, m) !== undefined);
 			own.hidden = sorted.length - visible.length;
 			return own.showAll ? sorted : visible;
 		} catch {
@@ -181,7 +210,7 @@ export function patchModelSelector(): boolean {
 		const result = original.updateList.apply(this, args);
 		try {
 			const cfg = config();
-			const line = cfg?.enabled ? hint(this, cfg) : undefined;
+			const line = cfg ? hint(this, cfg) : undefined;
 			if (line) this.listContainer.addChild(new Text(line, 0, 0));
 		} catch {
 			// Cosmetic only; never break pi's selector.
@@ -194,6 +223,15 @@ export function patchModelSelector(): boolean {
 		if (cfg?.enabled && keyMatches(data, cfg.toggleKey)) {
 			const own = state(this);
 			own.showAll = !own.showAll;
+			rebuild(this);
+			return;
+		}
+		if (cfg && this.scope !== "scoped" && keyMatches(data, cfg.sortKey)) {
+			try {
+				holder[HOOKS]?.setSort(nextSortMode(cfg.sort));
+			} catch {
+				// Could not save; keep the current order.
+			}
 			rebuild(this);
 			return;
 		}

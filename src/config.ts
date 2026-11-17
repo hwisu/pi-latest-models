@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
+import { isSortMode, type SortMode } from "./sort.ts";
 
 export interface Config {
 	/** Collapse the /model list to the newest models of each family. */
@@ -11,6 +12,10 @@ export interface Config {
 	keep: string[];
 	/** Key inside /model that toggles between "latest only" and "all versions". */
 	toggleKey: string;
+	/** Default order of the /model list: most used, by name, or pi's built-in order. */
+	sort: SortMode;
+	/** Key inside /model that switches the order (and saves it as the default). */
+	sortKey: string;
 }
 
 export const DEFAULT_CONFIG: Config = {
@@ -18,21 +23,29 @@ export const DEFAULT_CONFIG: Config = {
 	perFamily: 1,
 	keep: [],
 	toggleKey: "alt+v",
+	sort: "usage",
+	sortKey: "alt+s",
 };
 
 export function configPath(): string {
 	return join(getAgentDir(), "latest-models.json");
 }
 
+export function usageCachePath(): string {
+	return join(getAgentDir(), "cache", "latest-models-usage.json");
+}
+
 export function normalizeConfig(raw: unknown): Config {
 	const value = raw && typeof raw === "object" ? (raw as Partial<Record<keyof Config, unknown>>) : {};
 	const perFamily = Number(value.perFamily);
+	const key = (raw: unknown, fallback: string) => (typeof raw === "string" && raw.trim() ? raw.trim() : fallback);
 	return {
 		enabled: typeof value.enabled === "boolean" ? value.enabled : DEFAULT_CONFIG.enabled,
 		perFamily: Number.isFinite(perFamily) && perFamily >= 1 ? Math.floor(perFamily) : DEFAULT_CONFIG.perFamily,
 		keep: Array.isArray(value.keep) ? value.keep.filter((p): p is string => typeof p === "string" && p.length > 0) : [],
-		toggleKey:
-			typeof value.toggleKey === "string" && value.toggleKey.trim() ? value.toggleKey.trim() : DEFAULT_CONFIG.toggleKey,
+		toggleKey: key(value.toggleKey, DEFAULT_CONFIG.toggleKey),
+		sort: isSortMode(value.sort) ? value.sort : DEFAULT_CONFIG.sort,
+		sortKey: key(value.sortKey, DEFAULT_CONFIG.sortKey),
 	};
 }
 

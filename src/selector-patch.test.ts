@@ -3,10 +3,19 @@ import { test } from "node:test";
 import { initTheme, ModelSelectorComponent } from "@earendil-works/pi-coding-agent";
 import { type Config, DEFAULT_CONFIG } from "./config.ts";
 import { patchModelSelector, setHooks } from "./selector-patch.ts";
+import type { UsageMap } from "./usage.ts";
 
 initTheme("dark");
 let cfg: Config = { ...DEFAULT_CONFIG };
-setHooks({ config: () => cfg, theme: () => undefined });
+let usage: UsageMap = new Map();
+setHooks({
+	config: () => cfg,
+	theme: () => undefined,
+	usage: () => usage,
+	setSort: (sort) => {
+		cfg = { ...cfg, sort };
+	},
+});
 assert.ok(patchModelSelector(), "patch applies to this pi version");
 
 const ids: Record<string, string[]> = {
@@ -27,6 +36,7 @@ function open(current = find("anthropic", "claude-opus-5-5"), scoped: Array<{ mo
 	const Selector = ModelSelectorComponent as unknown as new (...args: unknown[]) => any;
 	return new Selector(tui, current, runtime, scoped, () => {}, () => {}, undefined, () => {}, find("openai-codex", "gpt-5.6-sol"));
 }
+const order = (sel: any) => sel.filteredModels.map((m: { id: string }) => m.id);
 const listed = (sel: any) => sel.filteredModels.map((m: { provider: string; id: string }) => `${m.provider}/${m.id}`).sort();
 const text = (sel: any) => sel.render(160).join("\n");
 
@@ -77,6 +87,43 @@ test("disabled config and per-family", () => {
 	sel = open();
 	assert.ok(listed(sel).includes("anthropic/claude-sonnet-4-5"));
 	assert.ok(listed(sel).includes("openai-codex/gpt-6-sol"));
+	sel.dispose();
+	cfg = { ...DEFAULT_CONFIG };
+});
+
+test("sort by name keeps current and default on top", () => {
+	cfg = { ...DEFAULT_CONFIG, sort: "name" };
+	const sel = open();
+	assert.deepEqual(order(sel), ["claude-opus-5-5", "gpt-5.6-sol", "claude-sonnet-5-5", "gpt-6-luna", "gpt-6.1-sol"]);
+	assert.match(text(sel), /sort: name · alt\+s change/);
+	sel.dispose();
+	cfg = { ...DEFAULT_CONFIG };
+});
+
+test("sort by usage ranks families by their total use", () => {
+	cfg = { ...DEFAULT_CONFIG, sort: "usage" };
+	usage = new Map([
+		["openai-codex/gpt-6-luna", { count: 3, last: 1 }],
+		["anthropic/claude-sonnet-4-5", { count: 10, last: 2 }], // older version: counts for the family
+	]);
+	const sel = open();
+	assert.deepEqual(order(sel), ["claude-opus-5-5", "gpt-5.6-sol", "claude-sonnet-5-5", "gpt-6-luna", "gpt-6.1-sol"]);
+	assert.match(text(sel), /sort: most used/);
+	sel.dispose();
+	usage = new Map();
+});
+
+test("sort key cycles usage → name → pi and saves the choice", () => {
+	cfg = { ...DEFAULT_CONFIG, sort: "usage" };
+	const sel = open();
+	sel.handleInput("\x1bs");
+	assert.equal(cfg.sort, "name");
+	assert.match(text(sel), /sort: name/);
+	sel.handleInput("\x1bs");
+	assert.equal(cfg.sort, "pi");
+	assert.deepEqual(order(sel).slice(0, 2), ["claude-opus-5-5", "gpt-5.6-sol"]);
+	sel.handleInput("\x1bs");
+	assert.equal(cfg.sort, "usage");
 	sel.dispose();
 	cfg = { ...DEFAULT_CONFIG };
 });

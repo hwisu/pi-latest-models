@@ -10,7 +10,8 @@
     "types": [
       "node"
     ],
-    "verbatimModuleSyntax": true
+    "verbatimModuleSyntax": true,
+    "erasableSyntaxOnly": true
   },
   "include": [
     "src"

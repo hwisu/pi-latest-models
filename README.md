@@ -1,6 +1,7 @@
 # pi-latest-models
 
-A [pi](https://pi.dev) package that trims the `/model` list to the **newest model of each family**.
+A [pi](https://pi.dev) package that trims the `/model` list to the **newest model of each family** and
+sorts it by **most used** or **name**.
 
 ```
 → ✓ gpt-5.6-sol [openai-codex] · default
@@ -11,7 +12,7 @@ A [pi](https://pi.dev) package that trims the `/model` list to the **newest mode
     gemini-3.8-flash [antigravity-acp]
     gpt-6.1-sol [openai-codex]
     ...
-  17 older versions hidden · alt+v show all
+  17 older versions hidden · alt+v show all · sort: most used · alt+s change
 ```
 
 Instead of `claude-sonnet-4-5`, `claude-sonnet-4-5-20250929`, `claude-sonnet-4-6`, `claude-sonnet-5`, and
@@ -42,14 +43,34 @@ pi -e git:github.com/hwisu/pi-latest-models
 - **Search** still works. If nothing among the newest models matches (for example `sonnet-4-5`), the
   search falls back to every version.
 - Press **`alt+v`** inside `/model` to switch between "latest only" and "all versions".
-- The **scoped** tab (from `enabledModels` or `--models`) is your explicit choice and is not trimmed.
-- `Ctrl+P` model cycling, `--model`, and `--list-models` are unchanged. Only the picker list is trimmed.
+- The **scoped** tab (from `enabledModels` or `--models`) is your explicit choice and is not trimmed or re-sorted.
+- `Ctrl+P` model cycling, `--model`, and `--list-models` are unchanged. Only the picker list is changed.
+
+## Sort order
+
+Choose the default order of the list with `sort`, or press **`alt+s`** inside `/model` to switch it
+(the choice is saved as the new default):
+
+| `sort` | Order |
+|---|---|
+| `usage` (default) | Most used first. Models nobody used yet follow in name order. |
+| `name` | By model ID, A→Z, with natural number order (`5-9` before `5-10`). |
+| `pi` | pi's built-in order (by provider). |
+
+Your current and default models stay on top in every order, as in plain pi.
+
+**Usage** is the number of assistant responses per model in your saved sessions (failed and aborted
+responses are skipped). It is counted in the background when a session starts, and only new or changed
+session files are read again (cache: `~/.pi/agent/cache/latest-models-usage.json`). Responses in the
+running session count right away. Versions of a family share one count, so a new release inherits the
+rank of the versions you used before.
 
 ## Command
 
 | Command | What it does |
 |---|---|
-| `/latest-models` | Show the settings and which families have hidden versions |
+| `/latest-models` | Show the settings, most used models, and which families have hidden versions |
+| `/latest-models sort <usage\|name\|pi>` | Set the default order |
 | `/latest-models on` / `off` | Turn trimming on or off |
 | `/latest-models per-family <n>` | Keep the newest `n` models of each family |
 | `/latest-models keep <pattern>` | Always list models matching `provider/id`, an ID, or a glob (`gpt-5.*`) |
@@ -62,11 +83,13 @@ Settings are stored in `~/.pi/agent/latest-models.json`:
   "enabled": true,
   "perFamily": 1,
   "keep": ["openai-codex/gpt-5.6-sol"],
-  "toggleKey": "alt+v"
+  "toggleKey": "alt+v",
+  "sort": "usage",
+  "sortKey": "alt+s"
 }
 ```
 
-`toggleKey` uses pi's key format (`alt+v`, `ctrl+shift+l`, …).
+`toggleKey` and `sortKey` use pi's key format (`alt+v`, `ctrl+shift+l`, …).
 
 ## Compatibility
 
