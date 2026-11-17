@@ -3,7 +3,7 @@
 A [pi](https://pi.dev) package that trims the `/model` list to the **newest model of each family** and
 sorts it by **most used** or **name**.
 
-```
+```text
 → ✓ gpt-5.6-sol [openai-codex] · default
     claude-fable-5-2 [anthropic]
     claude-haiku-5-5 [anthropic]
@@ -52,7 +52,7 @@ Choose the default order of the list with `sort`, or press **`alt+s`** inside `/
 (the choice is saved as the new default):
 
 | `sort` | Order |
-|---|---|
+| --- | --- |
 | `usage` (default) | Most used first. Models nobody used yet follow in name order. |
 | `name` | By model ID, A→Z, with natural number order (`5-9` before `5-10`). |
 | `pi` | pi's built-in order (by provider). |
@@ -68,7 +68,7 @@ rank of the versions you used before.
 ## Command
 
 | Command | What it does |
-|---|---|
+| --- | --- |
 | `/latest-models` | Show the settings, most used models, and which families have hidden versions |
 | `/latest-models sort <usage\|name\|pi>` | Set the default order |
 | `/latest-models on` / `off` | Turn trimming on or off |

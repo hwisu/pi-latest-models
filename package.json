@@ -39,7 +39,8 @@
   "scripts": {
     "test": "node --test \"src/**/*.test.ts\"",
     "typecheck": "tsc --noEmit",
-    "check": "npm run typecheck && npm test",
+    "lint:md": "markdownlint-cli2",
+    "check": "npm run typecheck && npm run lint:md && npm test",
     "prepublishOnly": "npm run check"
   },
   "peerDependencies": {
@@ -50,6 +51,7 @@
     "@earendil-works/pi-coding-agent": "1.5.2",
     "@earendil-works/pi-tui": "1.5.2",
     "@types/node": "^22.19.0",
+    "markdownlint-cli2": "^0.24.1",
     "typescript": "^5.9.3"
   }
 }

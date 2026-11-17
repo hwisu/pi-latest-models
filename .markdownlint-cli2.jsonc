@@ -1,0 +1,9 @@
+{
+  // Same rules pi-lens applies to Markdown.
+  "config": {
+    "MD013": false,
+    "MD024": { "siblings_only": true }
+  },
+  "globs": ["*.md"],
+  "ignores": ["node_modules/**"]
+}
