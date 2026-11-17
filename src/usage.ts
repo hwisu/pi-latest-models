@@ -1,6 +1,7 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { readdir, readFile, stat } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
+import { writeFileAtomic } from "./atomic-write.ts";
 
 /**
  * Model usage = number of assistant responses per `provider/id`, counted from pi's saved session
@@ -160,10 +161,7 @@ export class UsageTracker {
 
 	private saveCache(): void {
 		try {
-			mkdirSync(dirname(this.cachePath), { recursive: true });
-			const tmp = `${this.cachePath}.${process.pid}.tmp`;
-			writeFileSync(tmp, JSON.stringify(this.cache), "utf-8");
-			renameSync(tmp, this.cachePath);
+			writeFileAtomic(this.cachePath, JSON.stringify(this.cache));
 		} catch {
 			// Cache only.
 		}

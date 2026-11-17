@@ -64,7 +64,7 @@ test("latestKeys keeps one model per provider and family", () => {
 			[{ provider: "openrouter", id: "anthropic/claude-sonnet-4.5" }, { provider: "openrouter", id: "anthropic/claude-sonnet-5" }],
 		);
 	assert.deepEqual(
-		[...latestKeys(models)].sort(),
+		[...latestKeys(models)].sort((a, b) => a.localeCompare(b)),
 		[
 			"anthropic/claude-fable-5-2",
 			"anthropic/claude-haiku-5-5",

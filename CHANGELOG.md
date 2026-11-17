@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.2.1] - 2026-11-17
+
+- Internal cleanup: shared atomic JSON write, no non-null assertions in sorting, documented the prototype
+  cast. No behavior change.
+
 ## [0.2.0] - 2026-11-17
 
 - Sort the `/model` list by most used (default), by name, or in pi's order. Set it with

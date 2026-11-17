@@ -152,6 +152,8 @@ function pinRank(self: Selector, model: ModelRef): number | undefined {
 
 /** Returns false when this pi version's selector does not have the expected methods. */
 export function patchModelSelector(): boolean {
+	// SAFETY: the prototype is used as a plain method table. Every method read from it is checked with
+	// typeof below before it is wrapped, and the symbol keys written to it are private to this package.
 	const proto = ModelSelectorComponent?.prototype as unknown as Record<string | symbol, unknown> | undefined;
 	if (!proto) return false;
 	if (proto[PATCHED] === PATCH_VERSION) return true;

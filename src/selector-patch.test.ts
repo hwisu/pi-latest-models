@@ -37,7 +37,7 @@ function open(current = find("anthropic", "claude-opus-5-5"), scoped: Array<{ mo
 	return new Selector(tui, current, runtime, scoped, () => {}, () => {}, undefined, () => {}, find("openai-codex", "gpt-5.6-sol"));
 }
 const order = (sel: any) => sel.filteredModels.map((m: { id: string }) => m.id);
-const listed = (sel: any) => sel.filteredModels.map((m: { provider: string; id: string }) => `${m.provider}/${m.id}`).sort();
+const listed = (sel: any) => sel.filteredModels.map((m: { provider: string; id: string }) => `${m.provider}/${m.id}`).sort((a: string, b: string) => a.localeCompare(b));
 const text = (sel: any) => sel.render(160).join("\n");
 
 test("lists only the newest model per family, plus current and default", () => {

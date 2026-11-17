@@ -51,34 +51,29 @@ export function sortModels<T extends ModelRef>(
 ): T[] {
 	if (mode === "pi") return [...items];
 	const families = mode === "usage" ? familyUsage(usage) : undefined;
-	const info = new Map(
-		items.map((item) => {
-			const family = parseModelId(item.id).family;
-			const stat = usage.get(usageKey(item.provider, item.id));
-			return [
-				item,
-				{
-					pin: pinRank(item) ?? Number.POSITIVE_INFINITY,
-					family,
-					familyCount: families?.get(`${item.provider}/${family}`) ?? 0,
-					count: stat?.count ?? 0,
-					last: stat?.last ?? 0,
-				},
-			] as const;
-		}),
-	);
-	return [...items].sort((a, b) => {
-		const x = info.get(a)!;
-		const y = info.get(b)!;
+	const rows = items.map((item) => {
+		const family = parseModelId(item.id).family;
+		const stat = usage.get(usageKey(item.provider, item.id));
+		return {
+			item,
+			pin: pinRank(item) ?? Number.POSITIVE_INFINITY,
+			family,
+			familyCount: families?.get(`${item.provider}/${family}`) ?? 0,
+			count: stat?.count ?? 0,
+			last: stat?.last ?? 0,
+		};
+	});
+	rows.sort((x, y) => {
 		if (x.pin !== y.pin) return x.pin - y.pin;
-		if (mode === "name") return compareByName(a, b);
+		if (mode === "name") return compareByName(x.item, y.item);
 		return (
 			y.familyCount - x.familyCount ||
 			collator.compare(x.family, y.family) ||
-			collator.compare(a.provider, b.provider) ||
+			collator.compare(x.item.provider, y.item.provider) ||
 			y.count - x.count ||
 			y.last - x.last ||
-			compareModelIds(b.id, a.id)
+			compareModelIds(y.item.id, x.item.id)
 		);
 	});
+	return rows.map((row) => row.item);
 }

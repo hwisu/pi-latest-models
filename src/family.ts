@@ -167,13 +167,20 @@ export function latestKeys(models: readonly ModelRef[], perFamily = 1): Set<stri
 	return keep;
 }
 
+function globChar(ch: string): string {
+	switch (ch) {
+		case "*":
+			return ".*";
+		case "?":
+			return ".";
+		default:
+			return ch.replace(/[\\^$.+()|[\]{}]/g, "\\$&");
+	}
+}
+
 /** Minimal glob: `*` matches any run of characters, `?` one character. Case-insensitive. */
 export function globToRegExp(glob: string): RegExp {
-	const source = glob
-		.split("")
-		.map((ch) => (ch === "*" ? ".*" : ch === "?" ? "." : ch.replace(/[\\^$.+()|[\]{}]/g, "\\$&")))
-		.join("");
-	return new RegExp(`^${source}$`, "i");
+	return new RegExp(`^${glob.split("").map(globChar).join("")}$`, "i");
 }
 
 export function matchesAny(model: ModelRef, patterns: readonly string[]): boolean {

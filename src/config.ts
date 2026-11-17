@@ -1,6 +1,7 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
+import { writeFileAtomic } from "./atomic-write.ts";
 import { isSortMode, type SortMode } from "./sort.ts";
 
 export interface Config {
@@ -73,11 +74,7 @@ export function getConfig(): Config {
 
 export function saveConfig(update: (config: Config) => Config): Config {
 	const next = normalizeConfig(update(getConfig()));
-	const path = configPath();
-	mkdirSync(dirname(path), { recursive: true });
-	const tmp = `${path}.${process.pid}.tmp`;
-	writeFileSync(tmp, `${JSON.stringify(next, null, 2)}\n`, "utf-8");
-	renameSync(tmp, path);
+	writeFileAtomic(configPath(), `${JSON.stringify(next, null, 2)}\n`);
 	cached = { config: next };
 	return next;
 }
